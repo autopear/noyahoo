@@ -52,7 +52,40 @@
 - (StocksStatusView *)initWithFrame:(CGRect)frame; //iOS 8
 @end
 
+@interface FullScreenWorldClockCollectionController : UIViewController {
+    UIButton* _yahooButton; //iOS 7
+    UIButton *_twcButton; //iOS 8
+}
+@property(readonly, assign, nonatomic) UIButton* yahooButton; //iOS 7
+@property(readonly, nonatomic) UIButton *twcButton; //iOS 8
+- (void)yahooButtonPressed; //iOS 7
+- (void)twcButtonPressed; //iOS 8
+- (void)viewDidLayoutSubviews;
+- (void)setShowingInfo:(BOOL)show;
+@end
+
+@interface WeatherAttributionView : UIView {
+    UIButton* _twcButton;
+    UIButton* _yahooButton; //iOS 7
+}
+@property(retain, nonatomic) UIButton* yahooButton; //iOS 7
+@property(retain, nonatomic) UIButton* twcButton;
+- (void)_yahooLogoTapped; //iOS 7
+- (void)_twcLogoTapped;
+- (WeatherAttributionView *)initWithFrame:(CGRect)frame;
+@end
+
+@interface WorldClockMapView : UIView {
+    UIButton* _yahooButton; //iOS 7
+    UIButton *_twcButton; //iOS 8
+}
+- (void)yahooButtonPressed;  //iOS 7
+- (void)twcButtonPressed; //iOS 8
+- (WorldClockMapView *)initWithFrame:(CGRect)frame;
+@end
+
 //Notfication Center
+%group SB_HOOK
 %hook SBWidgetViewControllerHost //iOS 7 only
 
 + (BOOL)canLoadWidgetWithIdentifier:(NSString *)identifier forWidgetIdiom:(int)widgetIdiom bundlePath:(NSString *)path {
@@ -86,7 +119,11 @@
 
 %end
 
+%end
+
 //Weather app
+%group WEATHER_HOOK
+
 %hook WAWeatherCollectionFooterViewCell
 
 - (WAWeatherCollectionFooterViewCell *)initWithFrame:(CGRect)frame {
@@ -114,22 +151,13 @@
 - (TabController *)initWithFrame:(CGRect)frame withScrollIndicator:(BOOL)scrollIndicator {
     TabController *ctrl = %orig(frame, scrollIndicator);
 
-    if (kCFCoreFoundationVersionNumber < 1140.10) {
-        NSString *bundleIdentifier = [NSBundle mainBundle].bundleIdentifier;
-
-        if (bundleIdentifier && [bundleIdentifier isEqualToString:@"com.apple.weather"])
-            ctrl.yahooButton.hidden = YES;
-    }
+    if (kCFCoreFoundationVersionNumber < 1140.10)
+        ctrl.yahooButton.hidden = YES;
 
     return ctrl;
 }
 
 - (void)yahooButtonPressed {
-    NSString *bundleIdentifier = [NSBundle mainBundle].bundleIdentifier;
-
-    if (bundleIdentifier && [bundleIdentifier isEqualToString:@"com.apple.weather"])
-        return;
-
     %orig;
 }
 
@@ -137,21 +165,19 @@
     %orig;
 
     if (kCFCoreFoundationVersionNumber >= 1140.10) {
-        NSString *bundleIdentifier = [NSBundle mainBundle].bundleIdentifier;
-        if (bundleIdentifier && [bundleIdentifier isEqualToString:@"com.apple.weather"]) {
-
-            UILongPressGestureRecognizer *longPress = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(twcButtonPressed)];
-            [self.infoButton addGestureRecognizer:longPress];
-            [longPress release];
-
-            self.twcButton.hidden = YES;
-        }
+        UILongPressGestureRecognizer *longPress = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(twcButtonPressed)];
+        [self.infoButton addGestureRecognizer:longPress];
+        [longPress release];
+        self.twcButton.hidden = YES;
     }
 }
 
 %end
 
+%end
+
 //Stocks app
+%group STOCKS_HOOK
 
 %hook StocksBacksideView
 
@@ -207,3 +233,102 @@
 }
 
 %end
+
+%end
+
+//Clock app
+%group CLOCK_HOOK
+
+%hook FullScreenWorldClockCollectionController
+
+- (void)yahooButtonPressed {
+    return;
+}
+
+- (void)twcButtonPressed {
+    return;
+}
+
+- (void)viewDidLayoutSubviews {
+    %orig;
+    if (kCFCoreFoundationVersionNumber < 1140.10)
+        self.yahooButton.hidden = YES;
+    else
+        self.twcButton.hidden = YES;
+}
+
+- (void)setShowingInfo:(BOOL)show {
+    %orig(show);
+    if (show) {
+        if (kCFCoreFoundationVersionNumber < 1140.10)
+            self.yahooButton.hidden = YES;
+        else
+            self.twcButton.hidden = YES;
+    }
+}
+
+%end
+
+%hook WeatherAttributionView
+
+- (WeatherAttributionView *)initWithFrame:(CGRect)frame {
+    WeatherAttributionView *view = %orig(frame);
+    if (kCFCoreFoundationVersionNumber < 1140.10)
+        view.yahooButton.hidden = YES;
+    view.twcButton.hidden = YES;
+    return view;
+}
+
+- (void)_yahooLogoTapped {
+    return;
+}
+
+- (void)_twcLogoTapped {
+    return;
+}
+
+%end
+
+%hook WorldClockMapView
+
+- (WorldClockMapView *)initWithFrame:(CGRect)frame {
+    WorldClockMapView *view = %orig(frame);
+    UIButton *logoButton = nil;
+    if (kCFCoreFoundationVersionNumber < 1140.10)
+        logoButton = CHIvar(view, _yahooButton, UIButton *);
+    else
+        logoButton = CHIvar(view, _twcButton, UIButton *);
+    if (logoButton)
+        logoButton.hidden = YES;
+    return view;
+}
+
+- (void)yahooButtonPressed {
+    return;
+}
+
+- (void)twcButtonPressed {
+    return;
+}
+
+%end
+
+%end
+
+%ctor {
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
+
+    NSString *bundleIdentifier = [NSBundle mainBundle].bundleIdentifier;
+    if ([bundleIdentifier length] > 0) {
+        if ([bundleIdentifier isEqualToString:@"com.apple.springboard"])
+            %init(SB_HOOK);
+        if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad && [bundleIdentifier isEqualToString:@"com.apple.mobiletimer"])
+            %init(CLOCK_HOOK);
+        if ([bundleIdentifier isEqualToString:@"com.apple.stocks"])
+            %init(STOCKS_HOOK);
+        if ([bundleIdentifier isEqualToString:@"com.apple.weather"])
+            %init(WEATHER_HOOK);
+    }
+
+    [pool release];
+}
