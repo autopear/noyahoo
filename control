@@ -6,7 +6,7 @@ Depends: firmware (>= 7.0), mobilesubstrate (>= 0.9.5000)
 Replaces: com.autopear.nccleaner
 Conflicts: com.autopear.nccleaner
 Architecture: iphoneos-arm
-Name: No Yahoo!
+Name: No Yahoo! & TWC
 Priority: optional
 Description: No Yahoo! & TWC in NC, Clock, Stocks and Weather.
 Sponsor: thebigboss.org <http://thebigboss.org>
