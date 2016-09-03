@@ -1,10 +1,10 @@
 #Remove Yahoo! and The Weather Channel Logos
 
 ##Preview
-![Clock](Clock.png)
+![Clock](Clock.jpg)
 
-![NotificationCenter](NotificationCenter.png)
+![NotificationCenter](NotificationCenter.jpg)
 
-![Stocks](Stocks.png)
+![Stocks](Stocks.jpg)
 
-![Weather](Weather.png)
+![Weather](Weather.jpg)
