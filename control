@@ -1,5 +1,5 @@
 Package: com.autopear.noyahoo
-Version: 2.1
+Version: 2.3
 Section: Tweak
 Maintainer: BigBoss <bigboss@thebigboss.org>
 Depends: firmware (>= 7.0), mobilesubstrate (>= 0.9.5000)

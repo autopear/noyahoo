@@ -35,6 +35,18 @@
 - (void)loadView; //iOS 8
 @end
 
+@interface WAPageCollectionViewController {
+    WATouchButton *_infoButton; //iOS 9
+    WATouchButton *_twcButton; //iOS 9
+}
+@property(retain, nonatomic) WATouchButton *twcButton; // @synthesize twcButton=_twcButton;
+@property(retain, nonatomic) WATouchButton *infoButton; // @synthesize infoButton=_infoButton;
+- (void)twcButtonPressed;
+- (void)infoButtonPressed;
+- (WAPageCollectionViewController *)init;
+- (void)viewDidLoad;
+@end
+
 @interface StocksBacksideView : UIView {
 	UIButton *_logoView;
 }
@@ -81,7 +93,14 @@
 }
 - (void)yahooButtonPressed;  //iOS 7
 - (void)twcButtonPressed; //iOS 8
+- (void)layoutSubviews;
 - (WorldClockMapView *)initWithFrame:(CGRect)frame;
+@end
+
+@interface WorldClockCollectionEditController : UIViewController {
+    WeatherAttributionView *_weatherAttributionView;
+}
+- (void)loadView;
 @end
 
 //Notfication Center
@@ -161,15 +180,44 @@
     %orig;
 }
 
+%new
+- (void)handleOverridedLongPress:(UILongPressGestureRecognizer *)gestureRecognizer {
+    if (kCFCoreFoundationVersionNumber >= 1140.10 && gestureRecognizer.state == UIGestureRecognizerStateEnded)
+        [self twcButtonPressed];
+}
+
 - (void)loadView {
     %orig;
 
     if (kCFCoreFoundationVersionNumber >= 1140.10) {
-        UILongPressGestureRecognizer *longPress = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(twcButtonPressed)];
+        UILongPressGestureRecognizer *longPress = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(handleOverridedLongPress:)];
         [self.infoButton addGestureRecognizer:longPress];
         [longPress release];
         self.twcButton.hidden = YES;
     }
+}
+
+%end
+
+%hook WAPageCollectionViewController
+
+- (void)yahooButtonPressed {
+    %orig;
+}
+
+%new
+- (void)handleOverridedLongPress:(UILongPressGestureRecognizer *)gestureRecognizer {
+    if (gestureRecognizer.state == UIGestureRecognizerStateEnded)
+        [self twcButtonPressed];
+}
+
+- (void)viewDidLoad {
+    %orig;
+    
+    UILongPressGestureRecognizer *longPress = [[UILongPressGestureRecognizer alloc] initWithTarget:self action:@selector(handleOverridedLongPress:)];
+    [self.infoButton addGestureRecognizer:longPress];
+    [longPress release];
+    self.twcButton.hidden = YES;
 }
 
 %end
@@ -198,13 +246,19 @@
 
 %hook StocksStatusView
 
+%new
+- (void)handleOverridedLongPress:(UILongPressGestureRecognizer *)gestureRecognizer {
+    if (gestureRecognizer.state == UIGestureRecognizerStateEnded)
+        [self _viewStockButtonPressed];
+}
+
 - (StocksStatusView *)initWithStocksView:(id)stocksView {
     StocksStatusView *view = %orig(stocksView);
 
     if (kCFCoreFoundationVersionNumber < 1140.10) {
         //iOS 7
         UIButton *infoButton = CHIvar(view, _infoButton, UIButton *);
-        UILongPressGestureRecognizer *longPress = [[UILongPressGestureRecognizer alloc] initWithTarget:view action:@selector(_viewStockButtonPressed)];
+        UILongPressGestureRecognizer *longPress = [[UILongPressGestureRecognizer alloc] initWithTarget:view action:@selector(handleOverridedLongPress:)];
         [infoButton addGestureRecognizer:longPress];
         [longPress release];
 
@@ -221,7 +275,7 @@
     if (kCFCoreFoundationVersionNumber >= 1140.10) {
         //iOS 8
         UIButton *infoButton = CHIvar(view, _infoButton, UIButton *);
-        UILongPressGestureRecognizer *longPress = [[UILongPressGestureRecognizer alloc] initWithTarget:view action:@selector(_viewStockButtonPressed)];
+        UILongPressGestureRecognizer *longPress = [[UILongPressGestureRecognizer alloc] initWithTarget:view action:@selector(handleOverridedLongPress:)];
         [infoButton addGestureRecognizer:longPress];
         [longPress release];
 
@@ -293,14 +347,27 @@
 
 - (WorldClockMapView *)initWithFrame:(CGRect)frame {
     WorldClockMapView *view = %orig(frame);
+    if (![view respondsToSelector:@selector(layoutSubviews)]) {
+        UIButton *logoButton = nil;
+        if (kCFCoreFoundationVersionNumber < 1140.10)
+            logoButton = CHIvar(view, _yahooButton, UIButton *);
+        else
+            logoButton = CHIvar(view, _twcButton, UIButton *);
+        if (logoButton)
+            logoButton.hidden = YES;
+    }
+    return view;
+}
+
+- (void)layoutSubviews {
+    %orig;
     UIButton *logoButton = nil;
     if (kCFCoreFoundationVersionNumber < 1140.10)
-        logoButton = CHIvar(view, _yahooButton, UIButton *);
+        logoButton = CHIvar(self, _yahooButton, UIButton *);
     else
-        logoButton = CHIvar(view, _twcButton, UIButton *);
+        logoButton = CHIvar(self, _twcButton, UIButton *);
     if (logoButton)
         logoButton.hidden = YES;
-    return view;
 }
 
 - (void)yahooButtonPressed {
@@ -309,6 +376,17 @@
 
 - (void)twcButtonPressed {
     return;
+}
+
+%end
+
+%hook WorldClockCollectionEditController
+
+- (void)loadView {
+    %orig;
+    WeatherAttributionView *_weatherAttributionView = CHIvar(self, _weatherAttributionView, WeatherAttributionView *);
+    if (_weatherAttributionView)
+        _weatherAttributionView.hidden = YES;
 }
 
 %end
@@ -322,7 +400,7 @@
     if ([bundleIdentifier length] > 0) {
         if ([bundleIdentifier isEqualToString:@"com.apple.springboard"])
             %init(SB_HOOK);
-        if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad && [bundleIdentifier isEqualToString:@"com.apple.mobiletimer"])
+        if ([bundleIdentifier isEqualToString:@"com.apple.mobiletimer"])
             %init(CLOCK_HOOK);
         if ([bundleIdentifier isEqualToString:@"com.apple.stocks"])
             %init(STOCKS_HOOK);

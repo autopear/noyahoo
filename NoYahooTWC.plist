@@ -1,9 +1,9 @@
 {
 	Filter = {
 		Bundles = (
+			"com.apple.mobiletimer",
 			"com.apple.springboard",
 			"com.apple.stocks",
-			"com.apple.mobiletimer",
 			"com.apple.weather"
 		);
 	};
